@@ -1,0 +1,337 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Leaf Disease Detection System</title>
+
+    <!-- TensorFlow.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+
+    <!-- Teachable Machine Image Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <!-- CSS Styling -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7f4;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #176b36;
+        }
+
+        video {
+            width: 100%;
+            max-width: 450px;
+            border-radius: 12px;
+            background: #222;
+        }
+
+        button {
+            background: #176b36;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0d4c25;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        #results {
+            background: white;
+            max-width: 450px;
+            margin: 20px auto;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        #preview {
+            border-radius: 10px;
+            margin: 10px;
+            max-width: 100%;
+        }
+
+        .upload-section {
+            margin-top: 25px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Leaf Disease Detection System</h1>
+
+    <p>Real-Time Image Classification Using Teachable Machine</p>
+
+    <!-- Camera Preview -->
+    <h3>Camera Preview</h3>
+
+    <video id="camera" autoplay playsinline muted></video>
+
+    <br><br>
+
+    <!-- Camera Controls -->
+    <button id="startButton" onclick="startCamera()" disabled>
+        Start Camera
+    </button>
+
+    <button onclick="stopCamera()">
+        Stop Camera
+    </button>
+
+    <!-- Classification Results -->
+    <h3>Classification Results</h3>
+
+    <div id="results">
+        Loading model, please wait...
+    </div>
+
+    <!-- Image Upload -->
+    <div class="upload-section">
+
+        <h3>Upload Leaf Image</h3>
+
+        <input
+            type="file"
+            id="imageUpload"
+            accept="image/*"
+            capture="environment"
+            onchange="classifyImage(event)"
+        >
+
+        <br><br>
+
+        <img
+            id="preview"
+            style="max-width:300px; display:none;"
+        >
+
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+
+        // MODEL CONFIGURATION
+
+        const MODEL_URL = "./my-model/";
+
+        let model;
+        let stream = null;
+        let detecting = false;
+
+
+        // LOAD TEACHABLE MACHINE MODEL
+
+        async function loadModel() {
+
+            try {
+
+                model = await tmImage.load(
+                    MODEL_URL + "model.json",
+                    MODEL_URL + "metadata.json"
+                );
+
+                console.log("Model successfully loaded!");
+
+                document.getElementById("results").innerHTML =
+                    "Model loaded successfully. Ready for classification.";
+
+                document.getElementById("startButton").disabled = false;
+
+            } catch (error) {
+
+                console.error(error);
+
+                document.getElementById("results").innerHTML =
+                    "Error loading model. Check your model files.";
+
+            }
+
+        }
+
+
+        // START CAMERA
+
+        async function startCamera() {
+
+            if (!model) {
+                alert("Please wait until the model finishes loading.");
+                return;
+            }
+
+            try {
+
+                stream = await navigator.mediaDevices.getUserMedia({
+
+                    video: {
+                        facingMode: { ideal: "environment" }
+                    },
+
+                    audio: false
+
+                });
+
+                const video = document.getElementById("camera");
+
+                video.srcObject = stream;
+
+                await video.play();
+
+                console.log("Camera started successfully!");
+
+                detecting = true;
+
+                detectLeaf();
+
+            } catch (error) {
+
+                alert("Unable to access camera: " + error.message);
+
+            }
+
+        }
+
+
+        // STOP CAMERA
+
+        function stopCamera() {
+
+            detecting = false;
+
+            if (stream) {
+
+                stream.getTracks().forEach(track => track.stop());
+
+                stream = null;
+
+                document.getElementById("camera").srcObject = null;
+
+                console.log("Camera stopped.");
+
+            }
+
+        }
+
+
+        // REAL-TIME LEAF CLASSIFICATION
+
+        async function detectLeaf() {
+
+            const video = document.getElementById("camera");
+
+            while (detecting && stream) {
+
+                if (video.readyState >= 2) {
+
+                    const predictions = await model.predict(video);
+
+                    displayResults(predictions);
+
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+            }
+
+        }
+
+
+        // DISPLAY CLASSIFICATION RESULTS
+
+        function displayResults(predictions) {
+
+            const results = document.getElementById("results");
+
+            const sorted = [...predictions].sort(
+                (a, b) => b.probability - a.probability
+            );
+
+            let output = "";
+
+            sorted.forEach(item => {
+
+                const confidence = (item.probability * 100).toFixed(2);
+
+                output += `
+                    <p>
+                        <strong>${item.className}</strong>:
+                        ${confidence}%
+                    </p>
+                `;
+
+            });
+
+            results.innerHTML = output;
+
+        }
+
+
+        // CLASSIFY UPLOADED LEAF IMAGE
+
+        async function classifyImage(event) {
+
+            const file = event.target.files[0];
+
+            if (!file) return;
+
+            if (!model) {
+                alert("Please wait until the model finishes loading.");
+                return;
+            }
+
+            const image = document.getElementById("preview");
+
+            const imageURL = URL.createObjectURL(file);
+
+            try {
+
+                image.src = imageURL;
+
+                image.style.display = "block";
+
+                await image.decode();
+
+                const predictions = await model.predict(image);
+
+                displayResults(predictions);
+
+            } catch (error) {
+
+                alert("Unable to classify image: " + error.message);
+
+                console.error(error);
+
+            } finally {
+
+                URL.revokeObjectURL(imageURL);
+
+            }
+
+        }
+
+
+        // AUTOMATICALLY LOAD MODEL WHEN PAGE OPENS
+
+        loadModel();
+
+    </script>
+
+</body>
+</html>

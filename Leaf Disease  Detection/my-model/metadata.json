@@ -1,0 +1,1 @@
+{"tfjsVersion":"1.7.4","tmVersion":"2.4.19","packageVersion":"0.8.4-alpha2","packageName":"@teachablemachine/image","timeStamp":"2026-11-13T09:30:32.840Z","userMetadata":{},"modelName":"tm-my-image-model","labels":["Healthy Leaf","Insect Pest Disease","Leaf Spot Disease","Mosaic Virus Disease","White Mold Disease","Wilt Disease"],"imageSize":224}
